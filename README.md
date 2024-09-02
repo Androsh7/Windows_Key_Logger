@@ -6,7 +6,7 @@ This is a simple keystroke logger that uses GetKeyBoardState function from WINUS
 ## How the keylogger works
 - Uses the windows input class to record all 256 keystates
 - The program then determines which keypresses are recordable
-- Program then writes these keystrokes into a file that (hopefully) shows what the user typed
+- Program then writes these keystrokes into a file that shows what the user typed
 
 ## How the launcher works
 1. The program reads the main resource file "IDR_RCDATA" then it's contents "RCDATA.bin" then it's file header file "resource.h"
