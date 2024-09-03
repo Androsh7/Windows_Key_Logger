@@ -1,4 +1,10 @@
-// Keylogger.cpp
+// Windows_Key_Logger https://github.com/Androsh7/Windows_Key_Logger
+// by Androsh7
+
+// THIS TOOL IS FOR EDUCATIONAL AND RESEARCH PURPOSES ONLY
+// MALICIOUS USE OF THIS TOOL MAY CONSTITUTE A CRIME
+
+
 
 #include <iostream>
 #include <Windows.h>
