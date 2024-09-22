@@ -2,7 +2,6 @@
 Windows_Key_Logger https://github.com/Androsh7/Windows_Key_Logger
 by Androsh7
 
-
 MIT License
 
 Copyright (c) 2024 Androsh7
